@@ -1,0 +1,36 @@
+{#
+SPDX-FileCopyrightText: 2025 Matvey Vyalkov
+
+SPDX-License-Identifier: WTFPL
+#}
+
+<!DOCTYPE html>
+<html lang="ru">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="generator" content="https://altlinux.space/acme-corp/iat-timetable" />
+<link rel="stylesheet" href="styles.css" />
+<title>Расписание Ирбитского аграрного техникума</title>
+<header>
+  <h1>Расписание Ирбитского аграрного техникума</h1>
+</header>
+<main>
+  <p>Выберите группу:</p>
+  <nav>
+    {% for group in groups %}
+    <a class="group" href="{{ group }}/">{{ group }}</a>
+    {% endfor %}
+  </nav>
+  <p>Данные получены <em>{{ updated_at }}.</em></p>
+</main>
+<footer>
+  <hr>
+  <p>
+    <small>
+      Данный сервис предоставляется «как есть» без гарантий.
+      <br>
+      <a href="https://altlinux.space/acme-corp/iat-timetable">Исходный код</a>
+    </small>
+  </p>
+</footer>
+</html>
