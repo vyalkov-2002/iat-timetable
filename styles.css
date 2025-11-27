@@ -1,0 +1,35 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Matvey Vyalkov
+ *
+ * SPDX-License-Identifier: WTFPL
+ */
+
+body {
+  font: medium/1.62 sans-serif;
+  max-width: 60em;
+  padding: 0.62em;
+  margin: 0 auto;
+  hyphens: auto;
+}
+nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6em, 1fr));
+  justify-items: center;
+  gap: 0.5em;
+}
+footer {
+  text-align: center;
+}
+h1 {
+  font-size: large;
+  text-align: center;
+  line-height: 1.2;
+}
+a.group {
+  border: 2px solid black;
+  text-align: center;
+  align-content: center;
+  height: 4em;
+  width: 100%;
+  max-width: 6.472em;
+}

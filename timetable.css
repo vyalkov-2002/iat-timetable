@@ -1,0 +1,68 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Matvey Vyalkov
+ *
+ * SPDX-License-Identifier: WTFPL
+ */
+
+body {
+  font: medium/1.62 sans-serif;
+  padding: 0 0.62em;
+}
+header {
+  display: flex;
+  justify-content: center;
+}
+main {
+  display: grid;
+  grid-template-columns: min-content auto;
+  row-gap: 1em;
+  padding-top: 1.5em;
+}
+footer {
+  padding-top: 1.5em;
+}
+nav {
+  display: flex;
+  justify-content: space-between;
+  text-wrap: nowrap;
+}
+h1 {
+  font-size: large;
+  text-align: center;
+  line-height: 1.2;
+  margin-bottom: 0;
+}
+h2 {
+  font-size: medium;
+  line-height: 1.2;
+  writing-mode: sideways-lr;
+  text-align: center;
+}
+table {
+  table-layout: fixed;
+  max-width: 25em;
+  width: auto;
+  height: min-content;
+  margin: auto 0;
+  border: 2px solid;
+  border-collapse: collapse;
+  hyphens: auto;
+}
+tr {
+  height: 1.4lh;
+}
+td {
+  border: 1px solid;
+  padding: 0.3em 0.6em;
+}
+td.classroom {
+  width: 2em;
+  max-width: 2em;
+  font-weight: bold;
+  text-align: center;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+}
+span.line {
+  display: inline-block;
+}
