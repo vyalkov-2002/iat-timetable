@@ -40,7 +40,6 @@ h2 {
 }
 table {
   table-layout: fixed;
-  max-width: 25em;
   width: auto;
   height: min-content;
   margin: auto 0;
@@ -65,4 +64,14 @@ td.classroom {
 }
 span.line {
   display: inline-block;
+}
+@media screen {
+  table {
+    max-width: 25em;
+  }
+}
+@media print {
+  nav {
+    display: none;
+  }
 }
