@@ -9,3 +9,8 @@ SPDX-License-Identifier: WTFPL
   <script data-goatcounter="https://acme-corp.metrics.sysrq.in/count"
           async src="//acme-corp.metrics.sysrq.in/count.js"></script>
 {% endblock %}
+{% block body_extra %}
+  <noscript>
+    <img role="presentation" src="https://acme-corp.metrics.sysrq.in/count?p=/iat-timetable/{{ group }}/{{ week.week_id }}.html">
+  </noscript>
+{% endblock %}
