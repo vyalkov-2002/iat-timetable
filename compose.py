@@ -15,13 +15,12 @@ from pathlib import Path
 from typing import cast
 
 import egov66_timetable
-from egov66_timetable import write_timetable
+import jinja2
 from egov66_timetable.utils import (
     get_current_week,
     read_settings,
     write_settings,
 )
-from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 # Выводить дни недели в русской локали
 locale.setlocale(locale.LC_TIME, "ru_RU.utf8")
@@ -30,18 +29,15 @@ logger = logging.getLogger("main")
 logging.basicConfig(level=logging.INFO)
 
 
-def gen_index(groups: list[str]) -> None:
+def gen_index(groups: list[str], *, env: jinja2.Environment) -> None:
     """
     Генерирует index.html со списком групп.
+
+    :param groups: список групп
+    :param env: окружение Jinja
     """
 
-    jinja_env = Environment(
-        loader=FileSystemLoader(Path(__file__).parent),
-        autoescape=select_autoescape(),
-        trim_blocks=True,
-        lstrip_blocks=True,
-    )
-    template = jinja_env.get_template("index.html.jinja")
+    template = env.get_template("index.html.jinja")
 
     html = template.render(
         groups=groups,
@@ -64,6 +60,16 @@ def read_groups() -> list[str]:
 
 
 def main() -> None:
+    jinja_env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(Path(__file__).parent / "templates"),
+        autoescape=jinja2.select_autoescape(),
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
+
+    base_template = egov66_timetable.load_template()
+    week_template = jinja_env.get_template("week.html.jinja")
+
     week = get_current_week()
     logger.info("Текущая неделя: %s", week.week_id)
 
@@ -89,9 +95,12 @@ def main() -> None:
     for group in groups:
         logger.info("Загрузка расписания для группы %s", group)
         for offset in (+1, 0):
-            write_timetable(group, settings=settings, offset=offset)
+            egov66_timetable.write_timetable(
+                group, settings=settings, offset=offset,
+                template=week_template, base_template=base_template
+            )
         shutil.copy(f"{group}/{week.week_id}.html", f"{group}/index.html")
-    gen_index(groups)
+    gen_index(groups, env=jinja_env)
 
     os.chdir("..")
     write_settings(settings)
