@@ -33,3 +33,6 @@ a.group {
   width: 100%;
   max-width: 6.472em;
 }
+span.line {
+  display: inline-block;
+}

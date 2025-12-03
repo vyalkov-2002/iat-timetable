@@ -3,6 +3,7 @@
 
 settings.json
 pages
+*.html
 
 __pycache__
 *.py[co]
