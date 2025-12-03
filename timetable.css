@@ -5,7 +5,7 @@
  */
 
 body {
-  font: medium/1.62 sans-serif;
+  font: medium/1.5 sans-serif;
   padding: 0 0.62em;
 }
 header {
@@ -16,10 +16,9 @@ main {
   display: grid;
   grid-template-columns: min-content auto;
   row-gap: 1em;
-  padding-top: 1.5em;
 }
 footer {
-  padding-top: 1.5em;
+  margin: 1.5em 0;
 }
 nav {
   display: flex;
@@ -30,14 +29,15 @@ h1 {
   font-size: large;
   text-align: center;
   line-height: 1.2;
-  margin-bottom: 0;
   max-width: 90%;
+  margin-bottom: 1.5em;
 }
 h2 {
   font-size: medium;
   line-height: 1.2;
   writing-mode: sideways-lr;
   text-align: center;
+  margin-left: 0;
 }
 table {
   table-layout: fixed;
