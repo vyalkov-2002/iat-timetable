@@ -4,6 +4,7 @@
 #
 # SPDX-License-Identifier: WTFPL
 
+import json
 import locale
 import logging
 import os
@@ -78,6 +79,10 @@ def main() -> None:
 
     settings = read_settings()
     logger.info("Прочитаны настройки")
+
+    if (aliases_file := Path("aliases.json")).is_file():
+        settings["aliases"] = json.loads(aliases_file.read_text())
+        logger.info("Прочитаны алиасы")
 
     timetable_css = cast(
         Path, files(egov66_timetable).joinpath("static/styles.css")
