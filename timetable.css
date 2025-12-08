@@ -4,8 +4,11 @@
  * SPDX-License-Identifier: WTFPL
  */
 
+html {
+  font: 100%/1.5 sans-serif;
+  text-size-adjust: none;
+}
 body {
-  font: medium/1.5 sans-serif;
   padding: 0 0.62em;
 }
 header {
@@ -33,7 +36,7 @@ h1 {
   margin-bottom: 1.5em;
 }
 h2 {
-  font-size: medium;
+  font-size: 100%;
   line-height: 1.2;
   writing-mode: sideways-lr;
   text-align: center;
@@ -69,6 +72,17 @@ span.line {
 @media screen {
   table {
     max-width: 25em;
+  }
+  @media not (prefers-contrast: more) {
+    html {
+      background-color: #fafafa;
+      color: #212121;
+    }
+  }
+  @media (max-width: 600px) {
+    html {
+      font-size: 90%;
+    }
   }
 }
 @media print {
