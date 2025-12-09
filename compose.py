@@ -97,13 +97,12 @@ def main() -> None:
 
     os.chdir("pages")
 
+    egov66_timetable.write_timetable(
+        groups, settings=settings, offset_range=range(2),
+        template=week_template, base_template=base_template
+    )
+
     for group in groups:
-        logger.info("Загрузка расписания для группы %s", group)
-        for offset in (+1, 0):
-            egov66_timetable.write_timetable(
-                group, settings=settings, offset=offset,
-                template=week_template, base_template=base_template
-            )
         shutil.copy(f"{group}/{week.week_id}.html", f"{group}/index.html")
     gen_index(groups, env=jinja_env)
 
