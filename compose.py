@@ -17,6 +17,10 @@ from typing import cast
 
 import egov66_timetable
 import jinja2
+from egov66_timetable.callbacks.html import (
+    html_callback,
+    load_template,
+)
 from egov66_timetable.utils import (
     get_current_week,
     read_settings,
@@ -68,7 +72,7 @@ def main() -> None:
         lstrip_blocks=True,
     )
 
-    base_template = egov66_timetable.load_template()
+    base_template = load_template()
     week_template = jinja_env.get_template("week.html.jinja")
 
     week = get_current_week()
@@ -97,10 +101,12 @@ def main() -> None:
 
     os.chdir("pages")
 
-    egov66_timetable.write_timetable(
-        groups, settings=settings, offset_range=range(2),
-        template=week_template, base_template=base_template
-    )
+    callbacks = [
+        html_callback(settings, template=week_template,
+                      base_template=base_template),
+    ]
+    egov66_timetable.get_timetable(groups, callbacks, settings=settings,
+                                   offset_range=range(2))
 
     for group in groups:
         shutil.copy(f"{group}/{week.week_id}.html", f"{group}/index.html")
