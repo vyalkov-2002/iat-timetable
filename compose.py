@@ -7,9 +7,10 @@
 import json
 import locale
 import logging
-import os
 import shutil
+import sqlite3
 import sys
+from contextlib import chdir
 from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
@@ -20,6 +21,10 @@ import jinja2
 from egov66_timetable.callbacks.html import (
     html_callback,
     load_template,
+)
+from egov66_timetable.callbacks.sqlite import (
+    create_db,
+    sqlite_callback,
 )
 from egov66_timetable.utils import (
     get_current_week,
@@ -99,20 +104,26 @@ def main() -> None:
     shutil.copyfile("styles.css", "pages/styles.css")
     logger.info("Скопированы стили")
 
-    os.chdir("pages")
-
     callbacks = [
         html_callback(settings, template=week_template,
                       base_template=base_template),
     ]
-    egov66_timetable.get_timetable(groups, callbacks, settings=settings,
-                                   offset_range=range(2))
+    if (db_path := settings.get("db_path")) is not None:
+        db: sqlite3.Connection = sqlite3.connect(db_path)
+        cursor = create_db(db)
+        callbacks.append(sqlite_callback(cursor))
 
-    for group in groups:
-        shutil.copy(f"{group}/{week.week_id}.html", f"{group}/index.html")
-    gen_index(groups, env=jinja_env)
+    with chdir("pages"):
+        egov66_timetable.get_timetable(groups, callbacks, settings=settings,
+                                       offset_range=range(2))
 
-    os.chdir("..")
+        for group in groups:
+            shutil.copy(f"{group}/{week.week_id}.html", f"{group}/index.html")
+        gen_index(groups, env=jinja_env)
+
+        db.commit()
+        db.close()
+
     write_settings(settings)
 
 
