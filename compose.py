@@ -39,23 +39,65 @@ locale.setlocale(locale.LC_TIME, "ru_RU.utf8")
 logger = logging.getLogger("main")
 logging.basicConfig(level=logging.INFO)
 
+jinja_env = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(Path(__file__).parent / "templates"),
+    autoescape=jinja2.select_autoescape(),
+    trim_blocks=True,
+    lstrip_blocks=True,
+)
 
-def gen_index(groups: list[str], *, env: jinja2.Environment) -> None:
+
+def gen_index(groups: list[str]) -> None:
     """
     Генерирует index.html со списком групп.
 
     :param groups: список групп
-    :param env: окружение Jinja
     """
 
-    template = env.get_template("index.html.jinja")
+    for group in groups:
+        shutil.copy(f"{group}/{get_current_week().week_id}.html",
+                    f"{group}/index.html")
 
-    html = template.render(
+    html = jinja_env.get_template("index.html.jinja").render(
         groups=groups,
         updated_at=datetime.now().strftime("%x в %H:%M"),
     ).lstrip()
     with open("index.html", "w") as out:
         out.write(html)
+
+
+def store_groups_in_db(cursor: sqlite3.Cursor, groups: list[str]) -> None:
+    """
+    Записывает список групп в базу данных.
+
+    :param cur: курсор SQLite
+    :param groups: список групп
+    """
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS
+          college_group(id TEXT PRIMARY KEY NOT NULL)
+        """
+    )
+    cursor.execute("DELETE FROM college_group")
+    cursor.executemany("INSERT INTO college_group(id) VALUES (?)",
+                       list(batched(groups, n=1)))
+
+
+def init_html_callback(settings) -> egov66_timetable.TimetableCallback:
+    """
+    Настраивает коллбэк-функцию для генерации HTML-файлов.
+
+    :param settings: настройки
+    :returns: коллбэк-функция
+    """
+
+    base_template = load_template()
+    week_template = jinja_env.get_template("week.html.jinja")
+
+    return html_callback(settings, template=week_template,
+                         base_template=base_template)
 
 
 def read_groups() -> list[str]:
@@ -70,20 +112,23 @@ def read_groups() -> list[str]:
         return list(filter(None, lines))
 
 
-def main() -> None:
-    jinja_env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(Path(__file__).parent / "templates"),
-        autoescape=jinja2.select_autoescape(),
-        trim_blocks=True,
-        lstrip_blocks=True,
+def copy_styles() -> None:
+    """
+    Копирует стили CSS в директорию ``pages/``.
+    """
+
+    timetable_css = cast(
+        Path, files(egov66_timetable).joinpath("static/styles.css")
     )
+    if not timetable_css.is_file():
+        logger.error("Стили расписания не найдены")
+        sys.exit(1)
 
-    base_template = load_template()
-    week_template = jinja_env.get_template("week.html.jinja")
+    shutil.copyfile(timetable_css, "pages/timetable.css")
+    shutil.copyfile("styles.css", "pages/styles.css")
 
-    week = get_current_week()
-    logger.info("Текущая неделя: %s", week.week_id)
 
+def main() -> None:
     groups = read_groups()
     logger.info("Прочитано %d групп", len(groups))
 
@@ -98,24 +143,16 @@ def main() -> None:
         settings["aliases"] = json.loads(aliases_file.read_text())
         logger.info("Прочитаны алиасы")
 
-    timetable_css = cast(
-        Path, files(egov66_timetable).joinpath("static/styles.css")
-    )
-    if not timetable_css.is_file():
-        logger.error("Стили расписания не найдены")
-        sys.exit(1)
-
-    shutil.copyfile(timetable_css, "pages/timetable.css")
-    shutil.copyfile("styles.css", "pages/styles.css")
+    copy_styles()
     logger.info("Скопированы стили")
 
-    db: sqlite3.Connection = sqlite3.connect(db_path, timeout=30)
+    logger.info("Подключаюсь к базе данных")
+    db = sqlite3.connect(db_path, timeout=30)
     cursor = create_db(db)
     db.commit()
 
     callbacks = [
-        html_callback(settings, template=week_template,
-                      base_template=base_template),
+        init_html_callback(settings),
         sqlite_callback(cursor),
     ]
 
@@ -124,26 +161,16 @@ def main() -> None:
                                        offset_range=range(2))
         db.commit()
 
-        logging.info("Генерирую страницы index.html")
-        for group in groups:
-            shutil.copy(f"{group}/{week.week_id}.html", f"{group}/index.html")
-        gen_index(groups, env=jinja_env)
+        logger.info("Генерирую страницы index.html")
+        gen_index(groups)
 
-    logging.info("Сохраняю настройки")
+    logger.info("Сохраняю настройки")
     write_settings(settings)
 
-    logging.info("Вношу список групп в базу данных")
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS
-          college_group(id TEXT PRIMARY KEY NOT NULL)
-        """
-    )
-    cursor.execute("DELETE FROM college_group")
-    cursor.executemany("INSERT INTO college_group(id) VALUES (?)",
-                       list(batched(groups, n=1)))
-
+    logger.info("Сохраняю список групп в базе данных")
+    store_groups_in_db(cursor, groups)
     db.commit()
+
     db.close()
 
 
