@@ -108,7 +108,9 @@ def read_groups() -> list[str]:
     """
 
     with open("groups.txt") as file:
-        lines = (line.strip() for line in file.readlines())
+        lines = (line.strip()
+                 for line in file.readlines()
+                 if not line.startswith("#"))
         return list(filter(None, lines))
 
 

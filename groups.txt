@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 Matvey Vyalkov
+# SPDX-License-Identifier: CC0-1.0
+
 111-25
 112-25
 131-25
