@@ -13,6 +13,7 @@ import sys
 from contextlib import chdir
 from datetime import datetime
 from importlib.resources import files
+from itertools import batched
 from pathlib import Path
 from typing import cast
 
@@ -89,6 +90,10 @@ def main() -> None:
     settings = read_settings()
     logger.info("Прочитаны настройки")
 
+    if not isinstance(db_path := settings.get("db_path"), str):
+        logger.error("Параметр db_path не задан!")
+        sys.exit(1)
+
     if (aliases_file := Path("aliases.json")).is_file():
         settings["aliases"] = json.loads(aliases_file.read_text())
         logger.info("Прочитаны алиасы")
@@ -104,27 +109,42 @@ def main() -> None:
     shutil.copyfile("styles.css", "pages/styles.css")
     logger.info("Скопированы стили")
 
+    db: sqlite3.Connection = sqlite3.connect(db_path, timeout=30)
+    cursor = create_db(db)
+    db.commit()
+
     callbacks = [
         html_callback(settings, template=week_template,
                       base_template=base_template),
+        sqlite_callback(cursor),
     ]
-    if (db_path := settings.get("db_path")) is not None:
-        db: sqlite3.Connection = sqlite3.connect(db_path)
-        cursor = create_db(db)
-        callbacks.append(sqlite_callback(cursor))
 
     with chdir("pages"):
         egov66_timetable.get_timetable(groups, callbacks, settings=settings,
                                        offset_range=range(2))
+        db.commit()
 
+        logging.info("Генерирую страницы index.html")
         for group in groups:
             shutil.copy(f"{group}/{week.week_id}.html", f"{group}/index.html")
         gen_index(groups, env=jinja_env)
 
-        db.commit()
-        db.close()
-
+    logging.info("Сохраняю настройки")
     write_settings(settings)
+
+    logging.info("Вношу список групп в базу данных")
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS
+          college_group(id TEXT PRIMARY KEY NOT NULL)
+        """
+    )
+    cursor.execute("DELETE FROM college_group")
+    cursor.executemany("INSERT INTO college_group(id) VALUES (?)",
+                       list(batched(groups, n=1)))
+
+    db.commit()
+    db.close()
 
 
 if __name__ == "__main__":
