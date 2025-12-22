@@ -58,20 +58,32 @@ td {
   border: 1px solid;
   padding: 0.3em 0.6em;
 }
-td.classroom {
-  width: 2em;
-  max-width: 2em;
+td.lesson-num,
+td.classroom,
+td.group {
   font-weight: bold;
   text-align: center;
   overflow-wrap: anywhere;
   overflow: hidden;
 }
+td.lesson-num {
+  width: 1em;
+}
+td.classroom {
+  width: 2em;
+}
+td.group {
+  width: 5em;
+}
 span.line {
   display: inline-block;
 }
 @media screen {
-  table {
+  table.student {
     max-width: 25em;
+  }
+  table.teacher {
+    max-width: 30em;
   }
   @media not (prefers-contrast: more) {
     html {
