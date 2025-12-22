@@ -11,7 +11,7 @@ python -m venv --without-pip venv
 source venv/bin/activate
 
 uv pip install -U git+https://altlinux.space/acme-corp/ecp.egov66.ru-timetable
-python compose.py
+python -O compose.py
 
 pushd pages >/dev/null
 git add .

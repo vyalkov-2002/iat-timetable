@@ -25,7 +25,7 @@ from egov66_timetable.callbacks.html import (
 )
 from egov66_timetable.callbacks.sqlite import (
     create_db,
-    sqlite_callback,
+    # sqlite_callback,
 )
 from egov66_timetable.utils import (
     get_current_week,
@@ -155,7 +155,7 @@ def main() -> None:
 
     callbacks = [
         init_html_callback(settings),
-        sqlite_callback(cursor),
+        # sqlite_callback(cursor),
     ]
 
     with chdir("pages"):
