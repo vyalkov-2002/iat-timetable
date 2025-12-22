@@ -1,0 +1,16 @@
+{#
+SPDX-FileCopyrightText: 2025 Matvey Vyalkov
+
+SPDX-License-Identifier: WTFPL
+#}
+
+{% extends base_template %}
+{% block head_extra %}
+  <script data-goatcounter="https://acme-corp.metrics.sysrq.in/count"
+          async src="//acme-corp.metrics.sysrq.in/count.js"></script>
+{% endblock %}
+{% block body_extra %}
+  <noscript>
+    <img role="presentation" src="https://acme-corp.metrics.sysrq.in/count?p=/iat-timetable/{{ teacher.translit }}/{{ week.week_id }}.html">
+  </noscript>
+{% endblock %}

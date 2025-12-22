@@ -13,27 +13,37 @@ body {
   margin: 0 auto;
   hyphens: auto;
 }
-nav {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(6em, 1fr));
-  justify-items: center;
-  gap: 0.5em;
-}
-footer {
-  text-align: center;
-}
 h1 {
   font-size: large;
   text-align: center;
   line-height: 1.2;
 }
-a.group {
+main > section {
+  display: grid;
+  justify-items: center;
+  gap: 0.5em;
+}
+main > section.groups {
+  grid-template-columns: repeat(auto-fill, minmax(6em, 1fr));
+}
+main > section.teachers {
+  grid-template-columns: repeat(auto-fill, minmax(10em, 1fr));
+}
+main > section > a {
   border: 2px solid black;
   text-align: center;
   align-content: center;
   height: 4em;
   width: 100%;
+}
+main > section.groups > a {
   max-width: 6.472em;
+}
+main > section.teachers > a {
+  max-width: 12.944em;
+}
+footer {
+  text-align: center;
 }
 span.line {
   display: inline-block;

@@ -21,11 +21,17 @@ SPDX-License-Identifier: WTFPL
   </header>
   <main>
     <p>Выберите группу:</p>
-    <nav>
+    <section class="groups">
       {% for group in groups %}
-      <a class="group" href="{{ group }}/">{{ group }}</a>
+      <a href="{{ group }}/">{{ group }}</a>
       {% endfor %}
-    </nav>
+    </section>
+    <p>Или найдите себя в списке преподавателей:</p>
+    <section class="teachers">
+      {% for teacher in teachers %}
+      <a href="{{ teacher.translit }}/">{{ teacher.initials }}</a>
+      {% endfor %}
+    </section>
     <p>Данные получены <em>{{ updated_at }}.</em></p>
   </main>
   <footer>

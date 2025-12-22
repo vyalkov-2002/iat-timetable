@@ -21,12 +21,15 @@ import egov66_timetable
 import jinja2
 from egov66_timetable.callbacks.html import (
     html_callback,
+    html_teacher_callback,
+    load_teacher_template,
     load_template,
 )
 from egov66_timetable.callbacks.sqlite import (
     create_db,
     # sqlite_callback,
 )
+from egov66_timetable.types import Teacher
 from egov66_timetable.utils import (
     get_current_week,
     read_settings,
@@ -47,19 +50,21 @@ jinja_env = jinja2.Environment(
 )
 
 
-def gen_index(groups: list[str]) -> None:
+def gen_index(groups: list[str], teachers: list[Teacher]) -> None:
     """
-    Генерирует index.html со списком групп.
+    Генерирует index.html со списком групп и преподавателей.
 
     :param groups: список групп
+    :param teachers: список преподавателей
     """
 
-    for group in groups:
-        shutil.copy(f"{group}/{get_current_week().week_id}.html",
-                    f"{group}/index.html")
+    for dir in set(groups) | {teacher.translit for teacher in teachers}:
+        shutil.copy(f"{dir}/{get_current_week().week_id}.html",
+                    f"{dir}/index.html")
 
     html = jinja_env.get_template("index.html.jinja").render(
         groups=groups,
+        teachers=teachers,
         updated_at=datetime.now().strftime("%x в %H:%M"),
     ).lstrip()
     with open("index.html", "w") as out:
@@ -87,7 +92,7 @@ def store_groups_in_db(cursor: sqlite3.Cursor, groups: list[str]) -> None:
 
 def init_html_callback(settings) -> egov66_timetable.TimetableCallback:
     """
-    Настраивает коллбэк-функцию для генерации HTML-файлов.
+    Настраивает коллбэк-функцию для генерации HTML-файлов расписания студента.
 
     :param settings: настройки
     :returns: коллбэк-функция
@@ -98,6 +103,22 @@ def init_html_callback(settings) -> egov66_timetable.TimetableCallback:
 
     return html_callback(settings, template=week_template,
                          base_template=base_template)
+
+
+def init_html_teacher_callback(settings) -> egov66_timetable.TeacherTimetableCallback:
+    """
+    Настраивает коллбэк-функцию для генерации HTML-файлов расписания
+    преподавателя.
+
+    :param settings: настройки
+    :returns: коллбэк-функция
+    """
+
+    base_template = load_teacher_template()
+    week_template = jinja_env.get_template("teacher_week.html.jinja")
+
+    return html_teacher_callback(settings, template=week_template,
+                                 base_template=base_template)
 
 
 def read_groups() -> list[str]:
@@ -112,6 +133,20 @@ def read_groups() -> list[str]:
                  for line in file.readlines()
                  if not line.startswith("#"))
         return list(filter(None, lines))
+
+
+def read_teachers() -> list[Teacher]:
+    """
+    Читает список преподавателей из файла teachers.txt.
+
+    :returns: список преподавателей
+    """
+
+    with open("teachers.txt") as file:
+        lines = (line.strip()
+                 for line in file.readlines()
+                 if not line.startswith("#"))
+        return [Teacher(*line.split(" ")) for line in lines if line]
 
 
 def copy_styles() -> None:
@@ -134,6 +169,9 @@ def main() -> None:
     groups = read_groups()
     logger.info("Прочитано %d групп", len(groups))
 
+    teachers = read_teachers()
+    logger.info("Прочитано %d преподавателей", len(teachers))
+
     settings = read_settings()
     logger.info("Прочитаны настройки")
 
@@ -153,18 +191,27 @@ def main() -> None:
     cursor = create_db(db)
     db.commit()
 
-    callbacks = [
+    student_callbacks = [
         init_html_callback(settings),
         # sqlite_callback(cursor),
     ]
+    teacher_callbacks = [
+        init_html_teacher_callback(settings),
+    ]
 
     with chdir("pages"):
-        egov66_timetable.get_timetable(groups, callbacks, settings=settings,
-                                       offset_range=range(2))
+        egov66_timetable.get_timetable(
+            groups, student_callbacks, settings=settings, offset_range=range(2)
+        )
+        db.commit()
+
+        egov66_timetable.get_teacher_timetable(
+            teachers, teacher_callbacks, settings=settings, offset_range=range(2)
+        )
         db.commit()
 
         logger.info("Генерирую страницы index.html")
-        gen_index(groups)
+        gen_index(groups, teachers)
 
     logger.info("Сохраняю настройки")
     write_settings(settings)
