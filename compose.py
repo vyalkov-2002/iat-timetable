@@ -27,7 +27,8 @@ from egov66_timetable.callbacks.html import (
 )
 from egov66_timetable.callbacks.sqlite import (
     create_db,
-    # sqlite_callback,
+    sqlite_callback,
+    sqlite_teacher_callback,
 )
 from egov66_timetable.types import Teacher
 from egov66_timetable.utils import (
@@ -193,10 +194,11 @@ def main() -> None:
 
     student_callbacks = [
         init_html_callback(settings),
-        # sqlite_callback(cursor),
+        sqlite_callback(cursor),
     ]
     teacher_callbacks = [
         init_html_teacher_callback(settings),
+        sqlite_teacher_callback(cursor),
     ]
 
     with chdir("pages"):
