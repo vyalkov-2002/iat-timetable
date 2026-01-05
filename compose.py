@@ -91,6 +91,38 @@ def store_groups_in_db(cursor: sqlite3.Cursor, groups: list[str]) -> None:
                        list(batched(groups, n=1)))
 
 
+def store_teachers_in_db(cursor: sqlite3.Cursor, teachers: list[Teacher]) -> None:
+    """
+    Записывает список преподавателей в базу данных.
+
+    :param cur: курсор SQLite
+    :param groups: список преподавателей
+    """
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS
+          college_teacher(
+            id TEXT PRIMARY KEY NOT NULL,
+            surname TEXT NOT NULL,
+            given_name TEXT NOT NULL,
+            patronymic TEXT
+          )
+        """
+    )
+    cursor.execute("DELETE FROM college_teacher")
+
+    sql: str = (
+        """
+        INSERT INTO
+          college_teacher(id, surname, given_name, patronymic)
+        VALUES (?, ?, ?, ?)
+        """
+    )
+    params = [(t.id, t.surname, t.given_name, t.patronymic) for t in teachers]
+    cursor.executemany(sql, params)
+
+
 def init_html_callback(settings) -> egov66_timetable.TimetableCallback:
     """
     Настраивает коллбэк-функцию для генерации HTML-файлов расписания студента.
@@ -220,6 +252,10 @@ def main() -> None:
 
     logger.info("Сохраняю список групп в базе данных")
     store_groups_in_db(cursor, groups)
+    db.commit()
+
+    logger.info("Сохраняю список преподавателей в базе данных")
+    store_teachers_in_db(cursor, teachers)
     db.commit()
 
     db.close()
