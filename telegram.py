@@ -8,6 +8,7 @@ from datetime import timedelta
 
 from egov66_timetable import TimetableCallback
 from egov66_timetable.types import Lesson, Timetable, Week
+from telethon.errors.rpcerrorlist import UserIsBlockedError
 from telethon.sync import TelegramClient
 
 EMOJI_DIGITS = [f"{num}\uFE0F\u20E3" for num in range(10)]
@@ -114,7 +115,21 @@ def telegram_callback(cur: sqlite3.Cursor,
         for day_num in updated_days:
             message = compose_message(timetable, week, day_num)
             for chat_id in subscribers:
-                bot.send_message(chat_id, message)
+                try:
+                    bot.send_message(chat_id, message)
+                except UserIsBlockedError:
+                    logger.info("Отписываю чат %d", chat_id)
+                    cur.execute(
+                        """
+                        UPDATE
+                          telegram_chat
+                        SET
+                          subscribed = FALSE
+                        WHERE
+                          id = ?
+                        """,
+                        [chat_id]
+                    )
 
         # Обновляем дату последней проверки.
         lesson_ids = ((lesson[0],) for day in timetable for lesson in day.values())
