@@ -31,11 +31,15 @@ from egov66_timetable.callbacks.sqlite import (
     sqlite_teacher_callback,
 )
 from egov66_timetable.types import Teacher
+from egov66_timetable.types.settings import Settings
 from egov66_timetable.utils import (
     get_current_week,
     read_settings,
     write_settings,
 )
+from telethon.sync import TelegramClient
+
+from telegram import telegram_callback
 
 # Выводить дни недели в русской локали
 locale.setlocale(locale.LC_TIME, "ru_RU.utf8")
@@ -123,7 +127,7 @@ def store_teachers_in_db(cursor: sqlite3.Cursor, teachers: list[Teacher]) -> Non
     cursor.executemany(sql, params)
 
 
-def init_html_callback(settings) -> egov66_timetable.TimetableCallback:
+def init_html_callback(settings: Settings) -> egov66_timetable.TimetableCallback:
     """
     Настраивает коллбэк-функцию для генерации HTML-файлов расписания студента.
 
@@ -138,7 +142,9 @@ def init_html_callback(settings) -> egov66_timetable.TimetableCallback:
                          base_template=base_template)
 
 
-def init_html_teacher_callback(settings) -> egov66_timetable.TeacherTimetableCallback:
+def init_html_teacher_callback(
+    settings: Settings
+) -> egov66_timetable.TeacherTimetableCallback:
     """
     Настраивает коллбэк-функцию для генерации HTML-файлов расписания
     преподавателя.
@@ -212,6 +218,10 @@ def main() -> None:
         logger.error("Параметр db_path не задан!")
         sys.exit(1)
 
+    if not isinstance(tg_config := settings.get("telegram"), dict):
+        logger.error("Параметры telegram не заданы!")
+        sys.exit(1)
+
     if (aliases_file := Path("aliases.json")).is_file():
         settings["aliases"] = json.loads(aliases_file.read_text())
         logger.info("Прочитаны алиасы")
@@ -224,9 +234,19 @@ def main() -> None:
     cursor = create_db(db)
     db.commit()
 
+    bot = (
+        TelegramClient(
+            tg_config["session_file"],
+            tg_config["api_id"],
+            tg_config["api_hash"],
+        ).start(bot_token=tg_config["bot_token"])
+    )
+    bot.parse_mode = "html"
+
     student_callbacks = [
         init_html_callback(settings),
         sqlite_callback(cursor),
+        telegram_callback(cursor, bot),
     ]
     teacher_callbacks = [
         init_html_teacher_callback(settings),

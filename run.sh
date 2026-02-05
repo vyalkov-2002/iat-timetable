@@ -10,7 +10,7 @@ pushd "$(dirname "${0}")" >/dev/null
 python -m venv --without-pip venv
 source venv/bin/activate
 
-uv pip install -U git+https://altlinux.space/acme-corp/ecp.egov66.ru-timetable
+uv pip install -U git+https://altlinux.space/acme-corp/ecp.egov66.ru-timetable telethon[cryptg]
 python -O compose.py
 
 pushd pages >/dev/null
