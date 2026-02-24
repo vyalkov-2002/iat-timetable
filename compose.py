@@ -254,12 +254,12 @@ def main() -> None:
     ]
 
     with chdir("pages"):
-        egov66_timetable.get_timetable(
+        failures = egov66_timetable.get_timetable(
             groups, student_callbacks, settings=settings, offset_range=range(2)
         )
         db.commit()
 
-        egov66_timetable.get_teacher_timetable(
+        teacher_failures = egov66_timetable.get_teacher_timetable(
             teachers, teacher_callbacks, settings=settings, offset_range=range(2)
         )
         db.commit()
@@ -279,6 +279,11 @@ def main() -> None:
     db.commit()
 
     db.close()
+
+    if failures or teacher_failures:
+        logger.error("Ошибки: %s", failures)
+        logger.error("Ошибки: %s", teacher_failures)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
