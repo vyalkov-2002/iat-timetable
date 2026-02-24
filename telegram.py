@@ -10,6 +10,7 @@ from egov66_timetable import TimetableCallback
 from egov66_timetable.types import Lesson, Timetable, Week
 from telethon.errors.rpcerrorlist import (
     ChatIdInvalidError,
+    PeerIdInvalidError,
     UserIsBlockedError,
 )
 from telethon.sync import TelegramClient
@@ -116,7 +117,8 @@ def telegram_callback(cur: sqlite3.Cursor,
             for chat_id in subscribers:
                 try:
                     bot.send_message(chat_id, message)
-                except (ChatIdInvalidError, UserIsBlockedError, ValueError):
+                except (ChatIdInvalidError, PeerIdInvalidError,
+                        UserIsBlockedError, ValueError):
                     logger.info("Отписываю чат %d", chat_id)
                     cur.execute(
                         """
