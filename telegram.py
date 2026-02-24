@@ -110,8 +110,9 @@ def telegram_callback(cur: sqlite3.Cursor,
         subscribers: set[int] = {item[0] for item in cur.fetchall()}
 
         # Рассылаем уведомления подписчикам.
-        logger.info("Отправляю %d уведомлений %d получателям",
-                    len(updated_days), len(subscribers))
+        if len(updated_days) * len(subscribers) != 0:
+            logger.info("Отправляю %d уведомлений %d получателям",
+                        len(updated_days), len(subscribers))
         for day_num in updated_days:
             message = compose_message(timetable, week, day_num)
             for chat_id in subscribers:
