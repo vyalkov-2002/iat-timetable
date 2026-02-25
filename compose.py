@@ -76,34 +76,35 @@ def gen_index(groups: list[str], teachers: list[Teacher]) -> None:
         out.write(html)
 
 
-def store_groups_in_db(cursor: sqlite3.Cursor, groups: list[str]) -> None:
+def store_groups_in_db(conn: sqlite3.Connection, groups: list[str]) -> None:
     """
     Записывает список групп в базу данных.
 
-    :param cur: курсор SQLite
+    :param conn: база данных SQLite
     :param groups: список групп
     """
 
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS
-          college_group(id TEXT PRIMARY KEY NOT NULL)
-        """
-    )
-    cursor.execute("DELETE FROM college_group")
-    cursor.executemany("INSERT INTO college_group(id) VALUES (?)",
-                       list(batched(groups, n=1)))
+    with conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS
+              college_group(id TEXT PRIMARY KEY NOT NULL)
+            """
+        )
+        conn.execute("DELETE FROM college_group")
+        conn.executemany("INSERT INTO college_group(id) VALUES (?)",
+                         batched(groups, n=1))
 
 
-def store_teachers_in_db(cursor: sqlite3.Cursor, teachers: list[Teacher]) -> None:
+def store_teachers_in_db(conn: sqlite3.Connection, teachers: list[Teacher]) -> None:
     """
     Записывает список преподавателей в базу данных.
 
-    :param cur: курсор SQLite
+    :param conn: база данных SQLite
     :param groups: список преподавателей
     """
 
-    cursor.execute(
+    conn.execute(
         """
         CREATE TABLE IF NOT EXISTS
           college_teacher(
@@ -114,7 +115,7 @@ def store_teachers_in_db(cursor: sqlite3.Cursor, teachers: list[Teacher]) -> Non
           )
         """
     )
-    cursor.execute("DELETE FROM college_teacher")
+    conn.execute("DELETE FROM college_teacher")
 
     sql: str = (
         """
@@ -123,8 +124,9 @@ def store_teachers_in_db(cursor: sqlite3.Cursor, teachers: list[Teacher]) -> Non
         VALUES (?, ?, ?, ?)
         """
     )
-    params = [(t.id, t.surname, t.given_name, t.patronymic) for t in teachers]
-    cursor.executemany(sql, params)
+    params = ((t.id, t.surname, t.given_name, t.patronymic) for t in teachers)
+    conn.executemany(sql, params)
+    conn.commit()
 
 
 def init_html_callback(settings: Settings) -> egov66_timetable.TimetableCallback:
@@ -231,8 +233,7 @@ def main() -> None:
 
     logger.info("Подключаюсь к базе данных")
     db = sqlite3.connect(db_path, timeout=30)
-    cursor = create_db(db)
-    db.commit()
+    create_db(db)
 
     bot = (
         TelegramClient(
@@ -245,24 +246,21 @@ def main() -> None:
 
     student_callbacks = [
         init_html_callback(settings),
-        sqlite_callback(cursor),
-        telegram_callback(cursor, bot),
+        sqlite_callback(db),
+        telegram_callback(db, bot),
     ]
     teacher_callbacks = [
         init_html_teacher_callback(settings),
-        sqlite_teacher_callback(cursor),
+        sqlite_teacher_callback(db),
     ]
 
     with chdir("pages"):
         failures = egov66_timetable.get_timetable(
             groups, student_callbacks, settings=settings, offset_range=range(2)
         )
-        db.commit()
-
         teacher_failures = egov66_timetable.get_teacher_timetable(
             teachers, teacher_callbacks, settings=settings, offset_range=range(2)
         )
-        db.commit()
 
         logger.info("Генерирую страницы index.html")
         gen_index(groups, teachers)
@@ -271,12 +269,10 @@ def main() -> None:
     write_settings(settings)
 
     logger.info("Сохраняю список групп в базе данных")
-    store_groups_in_db(cursor, groups)
-    db.commit()
+    store_groups_in_db(db, groups)
 
     logger.info("Сохраняю список преподавателей в базе данных")
-    store_teachers_in_db(cursor, teachers)
-    db.commit()
+    store_teachers_in_db(db, teachers)
 
     db.close()
 

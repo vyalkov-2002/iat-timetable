@@ -43,14 +43,14 @@ def compose_message(timetable: Timetable[Lesson], week: Week, day_num: int) -> s
     return result
 
 
-def telegram_callback(cur: sqlite3.Cursor,
+def telegram_callback(conn: sqlite3.Connection,
                       bot: TelegramClient) -> TimetableCallback:
     """
     Отправляет уведомления об изменениях в расписании в Telegram.
 
     Этот коллбэк должен срабатывать после :py:func:`sqlite_callback`.
 
-    :param cur: курсор SQLite
+    :param conn: база данных SQLite
     :returns: коллбэк-функция для раписания группы
     """
 
@@ -60,7 +60,7 @@ def telegram_callback(cur: sqlite3.Cursor,
         # б) пара либо не удалена, либо удалена уже после прошлой проверки
         #
         # TODO: Показывать разницу между старым и новым расписанием.
-        # cur.execute(
+        # conn.execute(
         #     """
         #     SELECT
         #       id, classroom, name, day_num, lesson_num
@@ -80,7 +80,7 @@ def telegram_callback(cur: sqlite3.Cursor,
         # Выбираем из базы данных обновления в расписании по следующим условиям:
         # а) пара была добавлена ПОСЛЕ прошлой проверки
         # б) пара не удалена
-        cur.execute(
+        cur = conn.execute(
             """
             SELECT DISTINCT
               day_num
@@ -93,7 +93,7 @@ def telegram_callback(cur: sqlite3.Cursor,
             """,
             [group, week.week_id]
         )
-        updated_days = {day_num for (day_num,) in cur.fetchall()}
+        updated_days = {day_num for (day_num,) in cur}
 
         # Получаем ID подписчиков в телеграме.
         cur.execute(
@@ -107,7 +107,7 @@ def telegram_callback(cur: sqlite3.Cursor,
             """,
             [group]
         )
-        subscribers: set[int] = {item[0] for item in cur.fetchall()}
+        subscribers: set[int] = {item[0] for item in cur}
 
         # Рассылаем уведомления подписчикам.
         if len(updated_days) * len(subscribers) != 0:
@@ -121,30 +121,32 @@ def telegram_callback(cur: sqlite3.Cursor,
                 except (ChatIdInvalidError, PeerIdInvalidError,
                         UserIsBlockedError, ValueError):
                     logger.info("Отписываю чат %d", chat_id)
-                    cur.execute(
-                        """
-                        UPDATE
-                          telegram_chat
-                        SET
-                          subscribed = FALSE
-                        WHERE
-                          id = ?
-                        """,
-                        [chat_id]
-                    )
+                    with conn:
+                        conn.execute(
+                            """
+                            UPDATE
+                              telegram_chat
+                            SET
+                              subscribed = FALSE
+                            WHERE
+                              id = ?
+                            """,
+                            [chat_id]
+                        )
 
         # Обновляем дату последней проверки.
         lesson_ids = ((lesson[0],) for day in timetable for lesson in day.values())
-        cur.executemany(
-            """
-            UPDATE
-              lesson
-            SET
-              last_checked = CURRENT_TIMESTAMP
-            WHERE
-              id = ?
-            """,
-            lesson_ids
-        )
+        with conn:
+            conn.executemany(
+                """
+                UPDATE
+                  lesson
+                SET
+                  last_checked = CURRENT_TIMESTAMP
+                WHERE
+                  id = ?
+                """,
+                lesson_ids
+            )
 
     return callback
