@@ -43,10 +43,10 @@ def compose_message(timetable: Timetable[Lesson], week: Week, day_num: int) -> s
     return result
 
 
-def telegram_callback(conn: sqlite3.Connection,
-                      bot: TelegramClient) -> TimetableCallback:
+def messengers_callback(conn: sqlite3.Connection,
+                        tg_bot: TelegramClient) -> TimetableCallback:
     """
-    Отправляет уведомления об изменениях в расписании в Telegram.
+    Отправляет уведомления об изменениях в расписании в мессенджеры.
 
     Этот коллбэк должен срабатывать после :py:func:`sqlite_callback`.
 
@@ -107,17 +107,17 @@ def telegram_callback(conn: sqlite3.Connection,
             """,
             [group]
         )
-        subscribers: set[int] = {item[0] for item in cur}
+        tg_subscribers: set[int] = {item[0] for item in cur}
 
         # Рассылаем уведомления подписчикам.
-        if len(updated_days) * len(subscribers) != 0:
+        if len(updated_days) * len(tg_subscribers) != 0:
             logger.info("Отправляю %d уведомлений %d получателям",
-                        len(updated_days), len(subscribers))
+                        len(updated_days), len(tg_subscribers))
         for day_num in updated_days:
             message = compose_message(timetable, week, day_num)
-            for chat_id in subscribers:
+            for chat_id in tg_subscribers:
                 try:
-                    bot.send_message(chat_id, message)
+                    tg_bot.send_message(chat_id, message)
                 except (ChatIdInvalidError, PeerIdInvalidError,
                         UserIsBlockedError, ValueError):
                     logger.info("Отписываю чат %d", chat_id)

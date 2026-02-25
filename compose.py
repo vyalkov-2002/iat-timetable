@@ -39,7 +39,7 @@ from egov66_timetable.utils import (
 )
 from telethon.sync import TelegramClient
 
-from telegram import telegram_callback
+from messengers import messengers_callback
 
 # Выводить дни недели в русской локали
 locale.setlocale(locale.LC_TIME, "ru_RU.utf8")
@@ -235,19 +235,19 @@ def main() -> None:
     db = sqlite3.connect(db_path, timeout=30)
     create_db(db)
 
-    bot = (
+    tg_bot = (
         TelegramClient(
             tg_config["session_file"],
             tg_config["api_id"],
             tg_config["api_hash"],
         ).start(bot_token=tg_config["bot_token"])
     )
-    bot.parse_mode = "html"
+    tg_bot.parse_mode = "html"
 
     student_callbacks = [
         init_html_callback(settings),
         sqlite_callback(db),
-        telegram_callback(db, bot),
+        messengers_callback(db, tg_bot),
     ]
     teacher_callbacks = [
         init_html_teacher_callback(settings),
