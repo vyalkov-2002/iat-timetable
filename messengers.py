@@ -5,6 +5,7 @@
 import logging
 import sqlite3
 from datetime import timedelta
+from html import escape as e
 
 from egov66_timetable import TimetableCallback
 from egov66_timetable.types import Lesson, Timetable, Week
@@ -33,13 +34,14 @@ def compose_message(timetable: Timetable[Lesson], week: Week, day_num: int) -> s
     date_str = date.strftime("%x")
     weekday = date.strftime("%A").lower()
 
-    result = f"Новое расписание на <b>{date_str} ({weekday}):</b>\n"
+    result = f"Новое расписание на <b>{e(date_str)} ({e(weekday)}):</b>\n"
     for lesson_num in range(max(timetable[day_num]) + 1):
         this_lesson = timetable[day_num].get(lesson_num) or (None, ("", "—"))
         classroom, name = this_lesson[1]
-        result += f"\n{EMOJI_DIGITS[lesson_num + 1]} {name}"
+        result += f"\n{EMOJI_DIGITS[lesson_num + 1]} {e(name)}"
         if classroom:
-            result += f" — <i>{classroom}</i>"
+            result += f" — <i>{e(classroom)}</i>"
+
     return result
 
 
