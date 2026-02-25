@@ -6,6 +6,7 @@ import logging
 import sqlite3
 from datetime import timedelta
 from html import escape as e
+from urllib.parse import quote as q
 
 from egov66_timetable import TimetableCallback
 from egov66_timetable.types import Lesson, Timetable, Week
@@ -21,11 +22,13 @@ EMOJI_DIGITS = [f"{num}\uFE0F\u20E3" for num in range(10)]
 logger = logging.getLogger(__name__)
 
 
-def compose_message(timetable: Timetable[Lesson], week: Week, day_num: int) -> str:
+def compose_message(timetable: Timetable[Lesson], group: str, week: Week,
+                    day_num: int) -> str:
     """
     Создаёт уведомление об изменениях в расписании в формате HTML.
 
     :param timetable: расписание
+    :param group: номер группы
     :param week: неделя
     :param day_num: номер дня недели (от 0 до 6)
     """
@@ -41,6 +44,10 @@ def compose_message(timetable: Timetable[Lesson], week: Week, day_num: int) -> s
         result += f"\n{EMOJI_DIGITS[lesson_num + 1]} {e(name)}"
         if classroom:
             result += f" — <i>{e(classroom)}</i>"
+
+    url = "https://acme-corp.altlinux.team/iat-timetable"
+    url += f"/{q(group)}/{q(week.week_id)}.html"
+    result += f'\n\n<a href="{url}">Расписание на сайте</a>'
 
     return result
 
@@ -116,7 +123,7 @@ def messengers_callback(conn: sqlite3.Connection,
             logger.info("Отправляю %d уведомлений %d получателям",
                         len(updated_days), len(tg_subscribers))
         for day_num in updated_days:
-            message = compose_message(timetable, week, day_num)
+            message = compose_message(timetable, group, week, day_num)
             for chat_id in tg_subscribers:
                 try:
                     tg_bot.send_message(chat_id, message)
