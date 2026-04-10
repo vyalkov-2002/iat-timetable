@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import cast
 
 import egov66_timetable
+import loguru
+import vkbottle
 from egov66_timetable.callbacks.sqlite import (
     create_db,
     sqlite_callback,
@@ -46,6 +48,10 @@ logger = logging.getLogger("main")
 logging.basicConfig(level=logging.DEBUG if __debug__ else logging.INFO)
 for handler in logging.root.handlers:
     handler.addFilter(LoggingFilter())
+
+if not __debug__:
+    loguru.logger.remove()
+    loguru.logger.add(sys.stderr, level="INFO")
 
 
 def copy_styles() -> None:
@@ -78,6 +84,10 @@ def main() -> None:
         logger.error("Параметр db_path не задан!")
         sys.exit(1)
 
+    if not isinstance(vk_token := settings.get("vk_token"), str):
+        logger.error("Параметр vk_token не задан!")
+        sys.exit(1)
+
     if not isinstance(tg_config := settings.get("telegram"), dict):
         logger.error("Параметры telegram не заданы!")
         sys.exit(1)
@@ -93,6 +103,7 @@ def main() -> None:
     db = sqlite3.connect(db_path, timeout=30)
     create_db(db)
 
+    vk_api = vkbottle.API(vk_token)
     tg_bot = (
         TelegramClient(
             tg_config["session_file"],
@@ -105,7 +116,7 @@ def main() -> None:
     student_callbacks = [
         init_html_callback(settings),
         sqlite_callback(db),
-        messengers_callback(db, tg_bot),
+        messengers_callback(db, vk_api=vk_api, tg_bot=tg_bot),
     ]
     teacher_callbacks = [
         init_html_teacher_callback(settings),

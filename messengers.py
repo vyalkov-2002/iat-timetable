@@ -2,12 +2,17 @@
 #
 # SPDX-License-Identifier: WTFPL
 
+import asyncio
+import html
 import logging
 import sqlite3
+from collections.abc import Callable
 from datetime import timedelta
-from html import escape as e
+from typing import Protocol, Self
 from urllib.parse import quote as q
 
+import vkbottle
+import vkbottle.tools.formatting as vk_markup
 from egov66_timetable import TimetableCallback
 from egov66_timetable.types import Lesson, Timetable, Week
 from telethon.errors.rpcerrorlist import (
@@ -22,38 +27,78 @@ EMOJI_DIGITS = [f"{num}\uFE0F\u20E3" for num in range(10)]
 logger = logging.getLogger(__name__)
 
 
-def compose_message(timetable: Timetable[Lesson], group: str, week: Week,
-                    day_num: int) -> str:
+class StrLike(Protocol):
+    def __str__(self) -> str:
+        ...
+
+    def __add__(self, other: str | Self) -> Self:
+        ...
+
+    def __radd__(self, other: str | Self) -> Self:
+        ...
+
+
+def html_bold(string: str) -> str:
+    return f"<b>{string}</b>"
+
+
+def html_italic(string: str) -> str:
+    return f"<i>{string}</i>"
+
+
+def html_url(string: str, href: str) -> str:
+    return f'<a href="{href}">{string}</a>'
+
+
+def compose_message[T: StrLike](
+    timetable: Timetable[Lesson], group: str, week: Week, day_num: int, *,
+    bold: Callable[[str], str | T] = html_bold,
+    italic: Callable[[str], str | T] = html_italic,
+    url: Callable[[str, str], str | T] = html_url,
+    escape: Callable[[str], str] = html.escape
+) -> str | T:
     """
-    Создаёт уведомление об изменениях в расписании в формате HTML.
+    Создаёт уведомление об изменениях в расписании.
 
     :param timetable: расписание
     :param group: номер группы
     :param week: неделя
     :param day_num: номер дня недели (от 0 до 6)
+    :param bold: функция для создания жирного текста
+    :param italic: функция для создания курсивного текста
+    :param url: функция для создания гиперссылок
+    :param escape: функция для экранирования данных
     """
+
+    e = escape
 
     date = week.monday + timedelta(days=day_num)
     date_str = date.strftime("%x")
     weekday = date.strftime("%A").lower()
 
-    result = f"Новое расписание на <b>{e(date_str)} ({e(weekday)}):</b>\n"
+    result = (
+        "Новое расписание на "
+        + bold("{} ({}):".format(e(date_str), e(weekday))) + "\n"
+    )
     for lesson_num in range(max(timetable[day_num]) + 1):
         this_lesson = timetable[day_num].get(lesson_num) or (None, ("", "—"))
         classroom, name = this_lesson[1]
         result += f"\n{EMOJI_DIGITS[lesson_num + 1]} {e(name)}"
         if classroom:
-            result += f" — <i>{e(classroom)}</i>"
+            result += " — " + italic(e(classroom))
 
-    url = "https://acme-corp.altlinux.team/iat-timetable"
-    url += f"/{q(group)}/{q(week.week_id)}.html"
-    result += f'\n\n<a href="{url}">Расписание на сайте</a>'
+    link = (
+        "https://acme-corp.altlinux.team/iat-timetable/{}/{}.html"
+        .format(q(group), q(week.week_id))
+    )
+    result += "\n\n" + url("Расписание на сайте", link)
 
     return result
 
 
-def messengers_callback(conn: sqlite3.Connection,
-                        tg_bot: TelegramClient) -> TimetableCallback:
+def messengers_callback(
+    conn: sqlite3.Connection, *, tg_bot: TelegramClient, vk_api: vkbottle.API
+) -> TimetableCallback:
     """
     Отправляет уведомления об изменениях в расписании в мессенджеры.
 
@@ -62,6 +107,35 @@ def messengers_callback(conn: sqlite3.Connection,
     :param conn: база данных SQLite
     :returns: коллбэк-функция для раписания группы
     """
+
+    async def send_to_vk_users(message: str | vk_markup.Format, subscribers: set[int]) -> None:
+        kwargs: dict[str, object] = {}
+        if isinstance(message, vk_markup.Format):
+            kwargs["format_data"] = message.as_raw_data()
+
+        for peer_id in subscribers:
+            await vk_api.messages.send(  # type: ignore[call-overload]
+                user_id=peer_id, random_id=0, message=str(message), **kwargs
+            )
+
+    def send_to_tg_users(message: str, subscribers: set[int]) -> None:
+        for chat_id in subscribers:
+            try:
+                tg_bot.send_message(chat_id, message)
+            except (ChatIdInvalidError, PeerIdInvalidError, UserIsBlockedError, ValueError):
+                logger.info("Отписываю чат %d", chat_id)
+                with conn:
+                    conn.execute(
+                        """
+                        UPDATE
+                          telegram_chat
+                        SET
+                          subscribed = FALSE
+                        WHERE
+                          id = ?
+                        """,
+                        [chat_id]
+                    )
 
     def callback(timetable: Timetable[Lesson], group: str, week: Week) -> None:
         # Выбираем из базы данных строки по следующим условиям:
@@ -118,30 +192,35 @@ def messengers_callback(conn: sqlite3.Connection,
         )
         tg_subscribers: set[int] = {item[0] for item in cur}
 
+        # Получаем ID подписчиков вконтакте.
+        cur.execute(
+            """
+            SELECT
+             id
+            FROM
+             vk_chat
+            WHERE
+             group_id = ? AND subscribed = TRUE
+            """,
+            [group]
+        )
+        vk_subscribers: set[int] = {item[0] for item in cur}
+
         # Рассылаем уведомления подписчикам.
-        if len(updated_days) * len(tg_subscribers) != 0:
-            logger.info("Отправляю %d уведомлений %d получателям",
-                        len(updated_days), len(tg_subscribers))
+        if len(updated_days) * (len(vk_subscribers) + len(tg_subscribers)) != 0:
+            logger.info(
+                "Отправляю %d уведомлений %d+%d получателям",
+                len(updated_days), len(vk_subscribers), len(tg_subscribers)
+            )
         for day_num in updated_days:
-            message = compose_message(timetable, group, week, day_num)
-            for chat_id in tg_subscribers:
-                try:
-                    tg_bot.send_message(chat_id, message)
-                except (ChatIdInvalidError, PeerIdInvalidError,
-                        UserIsBlockedError, ValueError):
-                    logger.info("Отписываю чат %d", chat_id)
-                    with conn:
-                        conn.execute(
-                            """
-                            UPDATE
-                              telegram_chat
-                            SET
-                              subscribed = FALSE
-                            WHERE
-                              id = ?
-                            """,
-                            [chat_id]
-                        )
+            tg_message = compose_message(timetable, group, week, day_num)
+            vk_message = compose_message(
+                timetable, group, week, day_num,
+                escape=str, bold=vk_markup.bold, italic=vk_markup.italic,
+                url=lambda string, href: vk_markup._format(string, "url", {"url": href})
+            )
+            asyncio.run(send_to_vk_users(vk_message, vk_subscribers))
+            send_to_tg_users(tg_message, tg_subscribers)
 
         # Обновляем дату последней проверки.
         lesson_ids = ((lesson[0],) for day in timetable for lesson in day.values())
