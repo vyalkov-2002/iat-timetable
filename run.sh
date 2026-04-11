@@ -1,17 +1,13 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: 2025 Matvey Vyalkov
+# SPDX-FileCopyrightText: 2025-2026 Matvey Vyalkov
 #
 # SPDX-License-Identifier: WTFPL
 
 set -e
 
 pushd "$(dirname "${0}")" >/dev/null
-python -m venv --without-pip venv
-source venv/bin/activate
-
-uv pip install -U git+https://altlinux.space/acme-corp/ecp.egov66.ru-timetable telethon[cryptg] vkbottle loguru || true
-python -O compose.py
+uv run --with-requirements requirements.txt -U -m compose
 
 pushd pages >/dev/null
 git add .

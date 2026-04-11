@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Matvey Vyalkov
+# SPDX-License-Identifier: CC0-1.0
+
+git+https://altlinux.space/acme-corp/ecp.egov66.ru-timetable
+loguru
+telethon[cryptg]
+vkbottle
