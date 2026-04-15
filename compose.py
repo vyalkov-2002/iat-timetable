@@ -17,7 +17,6 @@ from typing import cast
 
 import egov66_timetable
 import loguru
-import vkbottle
 from egov66_timetable.callbacks.sqlite import (
     create_db,
     sqlite_callback,
@@ -27,7 +26,6 @@ from egov66_timetable.utils import (
     read_settings,
     write_settings,
 )
-from telethon.sync import TelegramClient
 
 from messengers import messengers_callback
 from utils import (
@@ -84,14 +82,6 @@ def main() -> None:
         logger.error("Параметр db_path не задан!")
         sys.exit(1)
 
-    if not isinstance(vk_token := settings.get("vk_token"), str):
-        logger.error("Параметр vk_token не задан!")
-        sys.exit(1)
-
-    if not isinstance(tg_config := settings.get("telegram"), dict):
-        logger.error("Параметры telegram не заданы!")
-        sys.exit(1)
-
     if (aliases_file := Path("aliases.json")).is_file():
         settings["aliases"] = json.loads(aliases_file.read_text())
         logger.info("Прочитаны алиасы")
@@ -103,20 +93,10 @@ def main() -> None:
     db = sqlite3.connect(db_path, timeout=30)
     create_db(db)
 
-    vk_api = vkbottle.API(vk_token)
-    tg_bot = (
-        TelegramClient(
-            tg_config["session_file"],
-            tg_config["api_id"],
-            tg_config["api_hash"],
-        ).start(bot_token=tg_config["bot_token"])
-    )
-    tg_bot.parse_mode = "html"
-
     student_callbacks = [
         init_html_callback(settings),
         sqlite_callback(db),
-        messengers_callback(db, vk_api=vk_api, tg_bot=tg_bot),
+        messengers_callback(db, settings),
     ]
     teacher_callbacks = [
         init_html_teacher_callback(settings),

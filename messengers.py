@@ -15,12 +15,13 @@ import vkbottle
 import vkbottle.tools.formatting as vk_markup
 from egov66_timetable import TimetableCallback
 from egov66_timetable.types import Lesson, Timetable, Week
+from egov66_timetable.types.settings import Settings
 from telethon.errors.rpcerrorlist import (
     ChatIdInvalidError,
     PeerIdInvalidError,
     UserIsBlockedError,
 )
-from telethon.sync import TelegramClient
+from telethon import TelegramClient
 
 EMOJI_DIGITS = [f"{num}\uFE0F\u20E3" for num in range(10)]
 
@@ -96,17 +97,37 @@ def compose_message[T: StrLike](
     return result
 
 
-def messengers_callback(
-    conn: sqlite3.Connection, *, tg_bot: TelegramClient, vk_api: vkbottle.API
-) -> TimetableCallback:
+def messengers_callback(conn: sqlite3.Connection,
+                        settings: Settings) -> TimetableCallback:
     """
     Отправляет уведомления об изменениях в расписании в мессенджеры.
 
-    Этот коллбэк должен срабатывать после :py:func:`sqlite_callback`.
+    Этот коллбэк должен срабатывать после :func:`sqlite_callback`.
 
     :param conn: база данных SQLite
+    :param settings: настройки
     :returns: коллбэк-функция для раписания группы
     """
+
+    if not isinstance(vk_token := settings.get("vk_token"), str):
+        raise RuntimeError("Параметр vk_token не задан!")
+
+    if not isinstance(tg_config := settings.get("telegram"), dict):
+        raise RuntimeError("Параметры telegram не заданы!")
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    vk_api = vkbottle.API(vk_token)
+    tg_bot = (
+        TelegramClient(
+            tg_config["session_file"],
+            tg_config["api_id"],
+            tg_config["api_hash"],
+            loop=loop,
+        ).start(bot_token=tg_config["bot_token"])
+    )
+    tg_bot.parse_mode = "html"
 
     async def send_to_vk_users(message: str | vk_markup.Format, subscribers: set[int]) -> None:
         kwargs: dict[str, object] = {}
@@ -118,10 +139,10 @@ def messengers_callback(
                 user_id=peer_id, random_id=0, message=str(message), **kwargs
             )
 
-    def send_to_tg_users(message: str, subscribers: set[int]) -> None:
+    async def send_to_tg_users(message: str, subscribers: set[int]) -> None:
         for chat_id in subscribers:
             try:
-                tg_bot.send_message(chat_id, message)
+                await tg_bot.send_message(chat_id, message)
             except (ChatIdInvalidError, PeerIdInvalidError, UserIsBlockedError, ValueError):
                 logger.info("Отписываю чат %d", chat_id)
                 with conn:
@@ -219,8 +240,12 @@ def messengers_callback(
                 escape=str, bold=vk_markup.bold, italic=vk_markup.italic,
                 url=lambda string, href: vk_markup._format(string, "url", {"url": href})
             )
-            asyncio.run(send_to_vk_users(vk_message, vk_subscribers))
-            send_to_tg_users(tg_message, tg_subscribers)
+            loop.run_until_complete(
+                asyncio.gather(
+                    send_to_vk_users(vk_message, vk_subscribers),
+                    send_to_tg_users(tg_message, tg_subscribers),
+                )
+            )
 
         # Обновляем дату последней проверки.
         lesson_ids = ((lesson[0],) for day in timetable for lesson in day.values())
