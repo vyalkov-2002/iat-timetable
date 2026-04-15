@@ -27,8 +27,8 @@ from egov66_timetable.utils import (
     write_settings,
 )
 
-from messengers import messengers_callback
-from utils import (
+from iat_timetable.messengers import messengers_callback
+from iat_timetable.utils import (
     LoggingFilter,
     gen_index,
     init_html_callback,
@@ -42,7 +42,7 @@ from utils import (
 # Выводить дни недели в русской локали
 locale.setlocale(locale.LC_TIME, "ru_RU.utf8")
 
-logger = logging.getLogger("main")
+logger = logging.getLogger("iat_timetable")
 logging.basicConfig(level=logging.DEBUG if __debug__ else logging.INFO)
 for handler in logging.root.handlers:
     handler.addFilter(LoggingFilter())

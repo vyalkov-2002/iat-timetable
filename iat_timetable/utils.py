@@ -39,8 +39,8 @@ class LoggingFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         if (
             record.levelno < logging.WARNING
-            and record.name != "main"
             and not record.name.startswith("egov66_timetable")
+            and not record.name.startswith("iat_timetable")
         ):
             if record.levelno == logging.INFO:
                 return __debug__

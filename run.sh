@@ -7,7 +7,7 @@
 set -e
 
 pushd "$(dirname "${0}")" >/dev/null
-PYTHONOPTIMIZE=y uv run --with-requirements requirements.txt -U -m compose
+PYTHONOPTIMIZE=y uv run --with-requirements requirements.txt -U -m iat_timetable
 
 pushd pages >/dev/null
 git add .
