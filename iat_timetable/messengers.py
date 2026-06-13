@@ -18,6 +18,7 @@ from egov66_timetable.types import Lesson, Timetable, Week
 from egov66_timetable.types.settings import Settings
 from telethon.errors.rpcerrorlist import (
     ChatIdInvalidError,
+    InputUserDeactivatedError,
     PeerIdInvalidError,
     UserIsBlockedError,
 )
@@ -143,7 +144,13 @@ def messengers_callback(conn: sqlite3.Connection,
         for chat_id in subscribers:
             try:
                 await tg_bot.send_message(chat_id, message)
-            except (ChatIdInvalidError, PeerIdInvalidError, UserIsBlockedError, ValueError):
+            except (
+                ChatIdInvalidError,
+                InputUserDeactivatedError,
+                PeerIdInvalidError,
+                UserIsBlockedError,
+                ValueError,
+            ):
                 logger.info("Отписываю чат %d", chat_id)
                 with conn:
                     conn.execute(
